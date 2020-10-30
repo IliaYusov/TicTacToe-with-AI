@@ -198,18 +198,10 @@ class MinMaxResult(Enum):
 
 
 class TicTacToeHardAI(TicTacToeAI):
-    BEST_MOVES_FILE = 'moves.pickle'
     NAME = 'HardAI'
 
-    def __init__(self):  # reading best moves from file
-        self._pickles = {}
-        if os.path.isfile(TicTacToeHardAI.BEST_MOVES_FILE):
-            with open(TicTacToeHardAI.BEST_MOVES_FILE, 'rb') as f:
-                self._pickles = pickle.load(f)
-
-    def __del__(self):  # dumping best moves to file
-        with open(TicTacToeHardAI.BEST_MOVES_FILE, 'wb') as f:
-            pickle.dump(self._pickles, f)
+    def __init__(self, pickles):
+        self._pickles = pickles
 
     def get_name(self):
         return self.NAME
@@ -286,54 +278,73 @@ class Commands(Enum):
     HARD = 'hard'
 
 
+class PickleManager:
+    BEST_MOVES_FILE = 'moves.pickle'
+
+    def __init__(self):
+        self.data = {}
+
+    def __enter__(self):
+        if os.path.isfile(PickleManager.BEST_MOVES_FILE):
+            with open(PickleManager.BEST_MOVES_FILE, 'rb') as f:
+                self.data = pickle.load(f)
+        return self.data
+
+    def __exit__(self, exception_type, exception_value, traceback):
+        with open(PickleManager.BEST_MOVES_FILE, 'wb') as f:
+            pickle.dump(self.data, f)
+
+
 def main():
-    print('''
-possible commands: "start <player1> <player2>", "exit"
-possible players: "user", "easy", "medium", "hard"
-coordinates are in form "x y" <x> - columns, <y> - rows, "1 1" - left bottom corner
-"X" plays first
-        ''')
+    with PickleManager() as pickles:
 
-    game = TicTacToe()
+        print('''
+        possible commands: "start <player1> <player2>", "exit"
+        possible players: "user", "easy", "medium", "hard"
+        coordinates are in form "x y" <x> - columns, <y> - rows, "1 1" - left bottom corner
+        "X" plays first
+            ''')
 
-    user = Players.USER.value()
-    easy = Players.EASY.value()
-    medium = Players.MEDIUM.value()
-    hard = Players.HARD.value()
+        game = TicTacToe()
 
-    players = {
-        Commands.USER.value: user,
-        Commands.EASY.value: easy,
-        Commands.MEDIUM.value: medium,
-        Commands.HARD.value: hard
-    }
+        user = Players.USER.value()
+        easy = Players.EASY.value()
+        medium = Players.MEDIUM.value()
+        hard = Players.HARD.value(pickles)
 
-    #  вынести бесконечный цикл в отдельную функцию
+        players = {
+            Commands.USER.value: user,
+            Commands.EASY.value: easy,
+            Commands.MEDIUM.value: medium,
+            Commands.HARD.value: hard
+        }
 
-    possible_commands = [item.value for item in Commands]
-    while True:
-        command = input('Input command: ').split()
-        if len(command) == 1 or len(command) == 3:
-            if command[0] == 'start' and command[1] in possible_commands and command[2] in possible_commands:
-                if command[1] == 'user' or command[2] == 'user':
-                    game.print_state()
-                game.set_players(players[command[1]], players[command[2]])
-                while game.state_analyze() == GameResult.IN_PROGRESS:
-                    game.set_state(game.get_players()[0].make_move(game.get_state(), game.get_xo()[0]))
-                    game.print_state()
-                    game.change_turn()
-                    print()
-                if game.state_analyze() == GameResult.WIN_O or game.state_analyze() == GameResult.WIN_X:
-                    print(f'{game.get_players()[1].get_name()} wins with "{game.get_xo()[1]}"\n')
-                elif game.state_analyze() == GameResult.DRAW:
-                    print('Draw\n')
-                game.reset()
-            elif command[0] == 'exit':
-                break
+        #  вынести бесконечный цикл в отдельную функцию
+
+        possible_commands = [item.value for item in Commands]
+        while True:
+            command = input('Input command: ').split()
+            if len(command) == 1 or len(command) == 3:
+                if command[0] == 'start' and command[1] in possible_commands and command[2] in possible_commands:
+                    if command[1] == 'user' or command[2] == 'user':
+                        game.print_state()
+                    game.set_players(players[command[1]], players[command[2]])
+                    while game.state_analyze() == GameResult.IN_PROGRESS:
+                        game.set_state(game.get_players()[0].make_move(game.get_state(), game.get_xo()[0]))
+                        game.print_state()
+                        game.change_turn()
+                        print()
+                    if game.state_analyze() == GameResult.WIN_O or game.state_analyze() == GameResult.WIN_X:
+                        print(f'{game.get_players()[1].get_name()} wins with "{game.get_xo()[1]}"\n')
+                    elif game.state_analyze() == GameResult.DRAW:
+                        print('Draw\n')
+                    game.reset()
+                elif command[0] == 'exit':
+                    break
+                else:
+                    print('Bad parameters!')
             else:
                 print('Bad parameters!')
-        else:
-            print('Bad parameters!')
 
 
 if __name__ == '__main__':
